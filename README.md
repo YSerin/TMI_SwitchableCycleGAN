@@ -1,11 +1,11 @@
 # TMI_SwitchableCycleGAN
 
-# Paper
+### Paper
 [Continuous Conversion of CT Kernel using Switchable CycleGAN with AdaIN][paper link] (arXiv.org, Serin Yang et al.)
 
 [paper link]: https://arxiv.org/abs/2011.13150
 
-# Code
+## Code
 We implemented this code based on the [original CycleGAN codes][CycleGAN link].
 
 [CycleGAN link]: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix 
