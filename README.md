@@ -5,6 +5,7 @@ Continuous Conversion of CT Kernel using Switchable CycleGAN with AdaIN (arXiv.o
 
 # Code
 We implemented this code based on the [original CycleGAN codes][CycleGAN link].
+
 [CycleGAN link]: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix 
 
 # train 
