@@ -34,38 +34,6 @@ class half_PolyPhase_resUnet_Adain(nn.Module):
         output = input + x
         return output
 
-class resUnet_Adain(nn.Module):
-    def __init__(self, in_ch=1, out_ch=1):
-        super(resUnet_Adain,self).__init__()
-        self.inconv = inconv(in_ch = in_ch, out_ch = 64)
-        self.down1 = down(in_ch = 64, out_ch=128)
-        self.down2 = down(in_ch = 128, out_ch=256)
-        self.down3 = down(in_ch = 256, out_ch=512)
-        self.down4 = down_end(in_ch = 512, out_ch=1024)
-        self.up4 = up(in_ch= 1024 , out_ch = 512)
-        self.up3 = up(in_ch= 512 , out_ch = 256)
-        self.up2 = up(in_ch= 256 , out_ch = 128)
-        self.up1 = up(in_ch= 128 , out_ch = 64)
-        self.outconv = outconv(in_ch = 64, out_ch=out_ch)
-
-        self.adain_shared = adain_code_generator_shared()
-
-    def forward(self,input, alpha):
-        batch_size = input.shape[0]
-        shared_code = self.adain_shared(batch_size)
-        x0 = self.inconv(input, shared_code,  alpha)
-        x1 = self.down1(x0, shared_code, alpha)
-        x2 = self.down2(x1, shared_code, alpha)
-        x3 = self.down3(x2, shared_code, alpha)
-        x4 = self.down4(x3, shared_code, alpha)
-        x = self.up4(x4, x3, shared_code, alpha)
-        x = self.up3(x, x2, shared_code, alpha)
-        x = self.up2(x, x1, shared_code, alpha)
-        x = self.up1(x, x0, shared_code, alpha)
-        x = self.outconv(x)
-        output = input + x
-        return output
-
 class inconv(nn.Module):
     def __init__(self,in_ch, out_ch):
         super(inconv, self).__init__()
@@ -102,53 +70,13 @@ class one_conv_adain(nn.Module):
         x_in = self.instanceNorm(x_in)
 
         N, C, h, w = x_in.size()
-        mean_x = torch.mean(x_in, dim=(2,3)).view(N,C,1,1).expand(N,C,h,w)       #shape: (N, ch,h,w)
-        sigma_x = torch.sqrt(torch.var(x_in, dim=(2,3))).view(N,C,1,1).expand(N,C,h,w)
         mean_y, sigma_y = self.adain(x_in, shared_code)
-        x_out = sigma_y / sigma_x * (x_in - mean_x) + mean_y
+        x_out = sigma_y * (x_in) + mean_y
 
-        # x_out = (alpha*sigma_y + (1-alpha)*sigma_x) * (x_in - mean_x) / sigma_x + beta * mean_y + (1-beta) * mean_x
         x_out = x_out * (alpha) + x_in * (1 - alpha)
         x_out = self.Leakyrelu(x_out)
         return x_out
 
-class down(nn.Module):
-    def __init__(self,in_ch, out_ch):
-        super(down, self).__init__()
-        self.avg_pool = nn.AvgPool2d(2)
-        self.conv1 = one_conv(in_ch, out_ch)
-        self.conv2 = one_conv_adain(out_ch, out_ch)
-    def forward(self,x, shared_code, alpha):
-        x = self.avg_pool(x)
-        x = self.conv1(x)
-        x = self.conv2(x, shared_code, alpha)
-        return x
-
-class down_end(nn.Module):
-    def __init__(self,in_ch, out_ch):
-        super(down_end, self).__init__()
-        self.avg_pool = nn.AvgPool2d(2)
-        self.conv1 = one_conv_adain(in_ch, out_ch)
-        self.conv2 = one_conv_adain(out_ch, out_ch)
-    def forward(self,x, shared_code, alpha):
-        x = self.avg_pool(x)
-        x = self.conv1(x, shared_code, alpha)
-        x = self.conv2(x, shared_code, alpha)
-        return x
-
-class up(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super(up,self).__init__()
-        self.up = nn.ConvTranspose2d(in_channels = in_ch, out_channels = in_ch//2, kernel_size=2, stride=2)
-        # self.up = nn.Upsample(scale_factor=2, mode='bilinear')
-        self.conv1 = one_conv(in_ch, out_ch)
-        self.conv2 = one_conv_adain(out_ch, out_ch)
-    def forward(self,x1, x2, shared_code, alpha):
-        x1 = self.up(x1)
-        x = torch.cat([x1, x2], dim=1)
-        x = self.conv1(x)
-        x = self.conv2(x, shared_code, alpha)
-        return x
 
 class down_half_polyphase(nn.Module):
     def __init__(self,in_ch, out_ch):
@@ -223,7 +151,7 @@ class adain_code_generator_shared(nn.Module):
         x = self.fc2(x)
         x = self.fc3(x)
         x = self.fc4(x)
-        return x        #x size: (N,64)
+        return x       
 
 class adain_code_generator_seperate(nn.Module):
     def __init__(self, ch):
@@ -237,12 +165,12 @@ class adain_code_generator_seperate(nn.Module):
     def forward(self, input, shared_code):
         N, C, h, w = input.size()
 
-        fc_mean = self.fc_mean(shared_code)    #fc_mean size: (1, ch)
-        fc_var = self.fc_var(shared_code)      #fc_var size: (1, ch)
+        fc_mean = self.fc_mean(shared_code)    
+        fc_var = self.fc_var(shared_code)      
         fc_var = self.ReLU(fc_var)
 
-        fc_mean_np = fc_mean.view(N,C,1,1).expand(N,C,h,w)     #fc_mean size: (N, ch, h, w)
-        fc_var_np = fc_var.view(N,C,1,1).expand(N,C,h,w)       #fc_var size: (N, ch, h, w)
+        fc_mean_np = fc_mean.view(N,C,1,1).expand(N,C,h,w)     
+        fc_var_np = fc_var.view(N,C,1,1).expand(N,C,h,w)      
 
         return fc_mean_np, fc_var_np
 
