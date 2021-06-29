@@ -10,6 +10,11 @@ We implemented this code based on the [original CycleGAN codes][CycleGAN link].
 
 [CycleGAN link]: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix 
 
+# Model
+The trained model weights can be downloaded [here][model link].
+
+[model link]: https://drive.google.com/drive/folders/1wl8uSpXiFgOpBOsUzjWKmFtg87sGT7ZJ?usp=sharing
+
 # Train 
 You can use train.py for 2 domain Switchable CycleGAN, and train_M.py for 3 domain Switchable CycleGAN.
 
